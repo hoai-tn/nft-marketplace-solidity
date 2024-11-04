@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "hardhat/console.sol";
 
-contract CTCKMarketplace is ERC721, ERC721URIStorage, Ownable {
+contract NFTMarketplace is ERC721, ERC721URIStorage, Ownable {
     uint256 private _tokenIds;
-    uint256 private _quantitySold; // keep the track how many tokens are getting sold
+    uint256 private _quantitySold; // keep the track how many tokens are getting Sold
 
     uint256 private _listingPrice = 0.0015 ether;
 
@@ -20,19 +20,26 @@ contract CTCKMarketplace is ERC721, ERC721URIStorage, Ownable {
         address payable seller;
         address payable owner;
         uint256 price;
-        bool sold;
+        bool isSold;
     }
+    
     event MarketItemCreated(
         uint indexed tokenId,
         address seller,
         address owner,
         uint256 price,
-        bool sold
+        bool isSold
     );
 
     constructor(
         address initialOwner
-    ) ERC721("CTCK Marketplace", "CTCKM") Ownable(initialOwner) {}
+    ) ERC721("Nart Meta Token", "NMNFT") Ownable(initialOwner) {}
+    // must be equal to listing price
+
+    modifier isEqualListingPrice(uint256 price) {
+        require(price == _listingPrice, "Price must be equal to listing price");
+        _;
+    }
 
     function updateListingPrice(uint256 listingPrice) public payable onlyOwner {
         _listingPrice = listingPrice;
@@ -48,19 +55,15 @@ contract CTCKMarketplace is ERC721, ERC721URIStorage, Ownable {
     ) public payable returns (uint256) {
         _tokenIds += 1;
         uint256 newTokenId = _tokenIds;
+        
         _mint(msg.sender, newTokenId);
         _setTokenURI(newTokenId, tokenURI);
-
-        createMarketItem(newTokenId, price);
+        _createMarketItem(newTokenId, price);
 
         return newTokenId;
     }
 
-    function createMarketItem(uint256 tokenId, uint256 price) private {
-        require(
-            msg.value == _listingPrice,
-            "Price must be equal to listing price"
-        );
+    function _createMarketItem(uint256 tokenId, uint256 price) private isEqualListingPrice(price) {
         // MarketItem newMarketItem =      MarketItem(tokenId, );
 
         _idMarketItem[tokenId] = MarketItem(
@@ -80,28 +83,24 @@ contract CTCKMarketplace is ERC721, ERC721URIStorage, Ownable {
             false
         );
     }
-
-    function reSellToken(uint256 tokenId, uint256 price) public payable {
+    
+    function reSellToken(uint256 tokenId, uint256 price) public payable isEqualListingPrice(price) {
         require(
             _idMarketItem[tokenId].owner == msg.sender,
             "Only item owner can perform operation"
-        );
-        require(
-            msg.value == _listingPrice,
-            "Price must be equal to listing price"
         );
 
         _idMarketItem[tokenId].owner = payable(address(this));
         _idMarketItem[tokenId].seller = payable(msg.sender);
         _idMarketItem[tokenId].price = price;
-        _idMarketItem[tokenId].sold = false;
+        _idMarketItem[tokenId].isSold = false;
 
         _quantitySold += 1;
 
         _transfer(msg.sender, address(this), tokenId);
     }
 
-    // buy market nft
+   /// Buy NFT
     function createMarketSale(uint256 tokenId) public payable {
         uint256 price = _idMarketItem[tokenId].price;
         require(
@@ -110,13 +109,15 @@ contract CTCKMarketplace is ERC721, ERC721URIStorage, Ownable {
         );
         _idMarketItem[tokenId].owner = payable(address(this));
         _idMarketItem[tokenId].seller = payable(msg.sender);
-        _idMarketItem[tokenId].sold = true;
+        _idMarketItem[tokenId].isSold = true;
 
         _transfer(address(this), msg.sender, tokenId);
-
+        
+        // send ether _listingPrice to owner
         (bool sentToOwner, ) = owner().call{value: _listingPrice}("");
         require(sentToOwner, "Failed to send Ether to Owner");
 
+        // send ether msg.value to seller
         (bool sentToSeller, ) = _idMarketItem[tokenId].seller.call{
             value: msg.value
         }("");
