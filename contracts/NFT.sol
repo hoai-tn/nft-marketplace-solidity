@@ -2,10 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract NFTMarketplace is ReentrancyGuard, Ownable {
+contract NFTMarketplaceDEMO is Ownable {
     // Platform fee structure
     uint256 public platformFee = 250; // e.g., 2.5% fee
     address public feeRecipient;
@@ -64,7 +63,7 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
         uint256 amount
     );
 
-    constructor(address _feeRecipient) {
+    constructor(address _feeRecipient) Ownable(msg.sender) {
         feeRecipient = _feeRecipient;
     }
 
@@ -107,7 +106,7 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
     function buyNFT(
         address nftContract,
         uint256 tokenId
-    ) external payable isListed(nftContract, tokenId) nonReentrant {
+    ) external payable isListed(nftContract, tokenId) {
         Listing memory listing = listings[nftContract][tokenId];
         require(msg.value >= listing.price, "Insufficient payment");
 
@@ -175,7 +174,7 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
     function placeBid(
         address nftContract,
         uint256 tokenId
-    ) external payable isAuctionActive(nftContract, tokenId) nonReentrant {
+    ) external payable isAuctionActive(nftContract, tokenId) {
         Auction storage auction = auctions[nftContract][tokenId];
         require(msg.value > auction.highestBid, "Bid too low");
 
@@ -194,7 +193,7 @@ contract NFTMarketplace is ReentrancyGuard, Ownable {
     function endAuction(
         address nftContract,
         uint256 tokenId
-    ) external isAuctionActive(nftContract, tokenId) nonReentrant {
+    ) external isAuctionActive(nftContract, tokenId) {
         Auction storage auction = auctions[nftContract][tokenId];
         require(block.timestamp >= auction.endTime, "Auction still active");
 
